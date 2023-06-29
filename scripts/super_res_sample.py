@@ -11,12 +11,12 @@ import numpy as np
 import torch as th
 import torch.distributed as dist
 
-from improved_diffusion import dist_util, logger
-from improved_diffusion.script_util import (
-    sr_model_and_diffusion_defaults,
-    sr_create_model_and_diffusion,
-    args_to_dict,
+from ano3ddpm import dist_util, logger
+from ano3ddpm.script_util import (
     add_dict_to_argparser,
+    args_to_dict,
+    sr_create_model_and_diffusion,
+    sr_model_and_diffusion_defaults,
 )
 
 

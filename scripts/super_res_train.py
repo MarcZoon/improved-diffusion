@@ -6,16 +6,16 @@ import argparse
 
 import torch.nn.functional as F
 
-from improved_diffusion import dist_util, logger
-from improved_diffusion.image_datasets import load_data
-from improved_diffusion.resample import create_named_schedule_sampler
-from improved_diffusion.script_util import (
-    sr_model_and_diffusion_defaults,
-    sr_create_model_and_diffusion,
-    args_to_dict,
+from ano3ddpm import dist_util, logger
+from ano3ddpm.image_datasets import load_data
+from ano3ddpm.resample import create_named_schedule_sampler
+from ano3ddpm.script_util import (
     add_dict_to_argparser,
+    args_to_dict,
+    sr_create_model_and_diffusion,
+    sr_model_and_diffusion_defaults,
 )
-from improved_diffusion.train_util import TrainLoop
+from ano3ddpm.train_util import TrainLoop
 
 
 def main():

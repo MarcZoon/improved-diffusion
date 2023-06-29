@@ -11,8 +11,9 @@ import math
 import numpy as np
 import torch as th
 
+from .losses import discretized_gaussian_log_likelihood, normal_kl
 from .nn import mean_flat
-from .losses import normal_kl, discretized_gaussian_log_likelihood
+from .simplex_util import generateSimplex
 
 
 def get_named_beta_schedule(schedule_name, num_diffusion_timesteps):
@@ -123,6 +124,10 @@ class GaussianDiffusion:
         model_var_type,
         loss_type,
         rescale_timesteps=False,
+        noise_fn: str = "gauss",
+        simplex_octaves: int = 6,
+        simplex_persistance: float = 0.8,
+        simplex_frequency: int = 64,
     ):
         self.model_mean_type = model_mean_type
         self.model_var_type = model_var_type
@@ -168,6 +173,19 @@ class GaussianDiffusion:
             / (1.0 - self.alphas_cumprod)
         )
 
+        # Setup noise_fn
+        if noise_fn.lower() in ["gauss", "gaussian"]:
+            self.noise_fn = lambda x: th.randn_like(x)
+        elif noise_fn.lower() == "simplex":
+            self.noise_fn = lambda x: generateSimplex(
+                x, simplex_octaves, simplex_persistance, simplex_frequency
+            )
+            raise NotImplementedError("'simplex' noise_fn not implemented yet")
+        else:
+            raise ValueError(
+                f"noise_fn should be one of 'gauss', 'simplex' . Not '{noise_fn}'"
+            )
+
     def q_mean_variance(self, x_start, t):
         """
         Get the distribution q(x_t | x_0).
@@ -197,7 +215,7 @@ class GaussianDiffusion:
         :return: A noisy version of x_start.
         """
         if noise is None:
-            noise = th.randn_like(x_start)
+            noise = self.noise_fn(x_start)
         assert noise.shape == x_start.shape
         return (
             _extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start
@@ -379,7 +397,7 @@ class GaussianDiffusion:
             denoised_fn=denoised_fn,
             model_kwargs=model_kwargs,
         )
-        noise = th.randn_like(x)
+        noise = self.noise_fn(x)
         nonzero_mask = (
             (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
         )  # no noise when t == 0
@@ -453,7 +471,7 @@ class GaussianDiffusion:
         if noise is not None:
             img = noise
         else:
-            img = th.randn(*shape, device=device)
+            img = self.noise_fn(th.zeros(*shape)).to(device)
         indices = list(range(self.num_timesteps))[::-1]
 
         if progress:
@@ -510,10 +528,10 @@ class GaussianDiffusion:
             * th.sqrt(1 - alpha_bar / alpha_bar_prev)
         )
         # Equation 12.
-        noise = th.randn_like(x)
+        noise = self.noise_fn(x)
         mean_pred = (
             out["pred_xstart"] * th.sqrt(alpha_bar_prev)
-            + th.sqrt(1 - alpha_bar_prev - sigma ** 2) * eps
+            + th.sqrt(1 - alpha_bar_prev - sigma**2) * eps
         )
         nonzero_mask = (
             (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
@@ -615,7 +633,7 @@ class GaussianDiffusion:
         if noise is not None:
             img = noise
         else:
-            img = th.randn(*shape, device=device)
+            img = self.noise_fn(th.zeros(*shape)).to(device)
         indices = list(range(self.num_timesteps))[::-1]
 
         if progress:
@@ -690,7 +708,7 @@ class GaussianDiffusion:
         if model_kwargs is None:
             model_kwargs = {}
         if noise is None:
-            noise = th.randn_like(x_start)
+            noise = self.noise_fn(x_start)
         x_t = self.q_sample(x_start, t, noise=noise)
 
         terms = {}
