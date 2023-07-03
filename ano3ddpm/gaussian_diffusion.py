@@ -7,9 +7,11 @@ Docstrings have been added, as well as DDIM sampling and a new collection of bet
 
 import enum
 import math
+from typing import Union
 
 import numpy as np
 import torch as th
+from unet import UNetModel
 
 from .losses import discretized_gaussian_log_likelihood, normal_kl
 from .nn import mean_flat
@@ -128,6 +130,7 @@ class GaussianDiffusion:
         simplex_octaves: int = 6,
         simplex_persistance: float = 0.8,
         simplex_frequency: int = 64,
+        sample_distance: Union[None, int] = None,
     ):
         self.model_mean_type = model_mean_type
         self.model_var_type = model_var_type
@@ -141,6 +144,12 @@ class GaussianDiffusion:
         assert (betas > 0).all() and (betas <= 1).all()
 
         self.num_timesteps = int(betas.shape[0])
+
+        if sample_distance is not None:
+            assert sample_distance <= self.num_timesteps
+            self.sample_distance = sample_distance
+        else:
+            self.sample_distance = self.num_timesteps
 
         alphas = 1.0 - betas
         self.alphas_cumprod = np.cumprod(alphas, axis=0)
@@ -493,6 +502,42 @@ class GaussianDiffusion:
                 )
                 yield out
                 img = out["sample"]
+
+    def sample_from_img_progressive(
+        self,
+        model: UNetModel,
+        x_start: th.Tensor,
+        sample_distance: Union[int, None] = None,
+    ):
+        if sample_distance is None:
+            sample_distance = self.sample_distance
+
+        device = next(model.parameters()).device
+        shape = x_start.shape
+
+        img = self.q_sample(x_start, t=sample_distance).to(device)
+
+        for i in range(sample_distance)[::-1]:
+            t = th.tensor([i] * shape[0], device=device)
+            with th.no_grad():
+                out = self.p_sample(
+                    model,
+                    img,
+                    t,
+                )
+                yield out
+                img = out["sample"]
+
+    def sample_from_img(
+        self,
+        model: UNetModel,
+        x_start: th.Tensor,
+        sample_distance: Union[int, None] = None,
+    ):
+        final = {}
+        for sample in self.sample_from_img_progressive(model, x_start, sample_distance):
+            final = sample
+        return final["sample"]
 
     def ddim_sample(
         self,
