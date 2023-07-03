@@ -1,5 +1,6 @@
 import argparse
 import inspect
+from typing import Tuple
 
 from . import gaussian_diffusion as gd
 from .respace import SpacedDiffusion, space_timesteps
@@ -8,7 +9,7 @@ from .unet import SuperResModel, UNetModel
 NUM_CLASSES = 1000
 
 
-def model_and_diffusion_defaults():
+def model_and_diffusion_defaults() -> dict:
     """
     Defaults for image training.
     """
@@ -61,7 +62,7 @@ def create_model_and_diffusion(
     in_channels,
     channel_mult,
     dimensions,
-):
+) -> Tuple[UNetModel, SpacedDiffusion]:
     model = create_model(
         image_size,
         num_channels,
