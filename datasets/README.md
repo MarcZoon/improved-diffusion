@@ -2,6 +2,8 @@
 
 This directory includes instructions and scripts for downloading ImageNet, LSUN bedrooms, and CIFAR-10 for use in this codebase.
 
+Additionally, there are also scripts to pre-process BraTS2020 and NFBS.
+
 ## ImageNet-64
 
 To download unconditional ImageNet-64, go to [this page on image-net.org](http://www.image-net.org/small/download.php) and click on "Train (64x64)". Simply download the file and unzip it, and use the resulting directory as the data directory (the `--data_dir` argument for the training script).
@@ -35,3 +37,18 @@ python lsun_bedroom.py bedroom_train_lmdb lsun_train_output_dir
 ```
 
 This creates a directory called `lsun_train_output_dir`. This directory can be passed to the training scripts via the `--data_dir` argument.
+
+## BraTS2020
+
+The BraTS2020 dataset can be downloaded from [kaggle](https://www.kaggle.com/datasets/awsaf49/brats20-dataset-training-validation). To pre-process the data into an HDF5 file run:
+
+```bash
+python datasets/brats.py --input_dir ... --output_file hdf5_files/BraTS2020.hdf5 --sequence t1
+```
+
+## NFBS Skull-Stripped Repository
+The NFBS dataset can be downloaded from http://preprocessed-connectomes-project.org/NFB_skullstripped/. To pre-process the data into an HDF5 file run:
+
+```bash
+python datasets/nfbs.py --input_file ... --output_file hdf5_files/NFBS.hdf5
+```
