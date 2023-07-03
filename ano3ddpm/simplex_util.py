@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 
 import numpy as np
 import opensimplex
@@ -6,7 +6,7 @@ import torch
 
 
 def generateSimplex2D(
-    shape: Tuple[int] = (256, 256),
+    shape: Union[List[int], Tuple[int]] = [256, 256],
     octaves: int = 6,
     persistance: float = 0.8,
     frequency: int = 64,
@@ -14,7 +14,7 @@ def generateSimplex2D(
     noise = np.zeros(shape)
     y, x = [np.arange(0, end) for end in shape]
 
-    amplitude = 1
+    amplitude = 1.0
     for _ in range(octaves):
         opensimplex.random_seed()
         noise += amplitude * opensimplex.noise2array(x / frequency, y / frequency)
@@ -25,7 +25,7 @@ def generateSimplex2D(
 
 
 def generateSimplex3D(
-    shape: Tuple[int] = (256, 256, 256),
+    shape: Union[List[int], Tuple[int]] = [256, 256, 256],
     octaves: int = 6,
     persistance: float = 0.8,
     frequency: int = 64,
@@ -33,7 +33,7 @@ def generateSimplex3D(
     noise = np.zeros(shape)
     z, y, x = [np.arange(0, end) for end in shape]
 
-    amplitude = 1
+    amplitude = 1.0
     for _ in range(octaves):
         opensimplex.random_seed()
         noise += amplitude * opensimplex.noise3array(
@@ -61,6 +61,11 @@ def generateSimplex(
                 n = generateSimplex2D(shape, octaves, persistance, frequency)
             elif dimensions == 3:
                 n = generateSimplex3D(shape, octaves, persistance, frequency)
+            else:
+                raise ValueError(
+                    "'x' has an unsupported shape."
+                    "It should be one of (B, C, x, y) or (B, C, x, y, z)"
+                )
             noise[b, c, ...] = n
     return noise
 
