@@ -32,6 +32,9 @@ def model_and_diffusion_defaults():
         rescale_learned_sigmas=True,
         use_checkpoint=False,
         use_scale_shift_norm=True,
+        in_channels=1,
+        channel_mult=None,
+        dimensions=2,
     )
 
 
@@ -55,6 +58,9 @@ def create_model_and_diffusion(
     rescale_learned_sigmas,
     use_checkpoint,
     use_scale_shift_norm,
+    in_channels,
+    channel_mult,
+    dimensions,
 ):
     model = create_model(
         image_size,
@@ -68,6 +74,9 @@ def create_model_and_diffusion(
         num_heads_upsample=num_heads_upsample,
         use_scale_shift_norm=use_scale_shift_norm,
         dropout=dropout,
+        in_channels=in_channels,
+        channel_mult=channel_mult,
+        dimensions=dimensions,
     )
     diffusion = create_gaussian_diffusion(
         steps=diffusion_steps,
@@ -95,8 +104,13 @@ def create_model(
     num_heads_upsample,
     use_scale_shift_norm,
     dropout,
+    in_channels,
+    channel_mult,
+    dimensions,
 ):
-    if image_size == 256:
+    if channel_mult:
+        pass
+    elif image_size == 256:
         channel_mult = (1, 1, 2, 2, 4, 4)
     elif image_size == 64:
         channel_mult = (1, 2, 3, 4)
@@ -112,7 +126,7 @@ def create_model(
     return UNetModel(
         in_channels=3,
         model_channels=num_channels,
-        out_channels=(3 if not learn_sigma else 6),
+        out_channels=(in_channels if not learn_sigma else 2 * in_channels),
         num_res_blocks=num_res_blocks,
         attention_resolutions=tuple(attention_ds),
         dropout=dropout,
@@ -122,6 +136,7 @@ def create_model(
         num_heads=num_heads,
         num_heads_upsample=num_heads_upsample,
         use_scale_shift_norm=use_scale_shift_norm,
+        dims=dimensions,
     )
 
 
