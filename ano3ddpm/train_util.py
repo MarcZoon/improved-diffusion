@@ -18,6 +18,7 @@ from .fp16_util import (
     zero_grad,
 )
 from .nn import update_ema
+from .plot_util import save_as_plot, save_as_video
 from .resample import LossAwareSampler, UniformSampler
 
 # For ImageNet experiments, this was a good default value.
@@ -33,6 +34,7 @@ class TrainLoop:
         model,
         diffusion,
         data,
+        data_validation,
         batch_size,
         microbatch,
         lr,
@@ -45,13 +47,18 @@ class TrainLoop:
         schedule_sampler=None,
         weight_decay=0.0,
         lr_anneal_steps=0,
+        max_steps=0,
+        save_img=True,
+        save_video=True,
     ):
         self.model = model
         self.diffusion = diffusion
         self.data = data
+        self.data_validation = data_validation
         self.batch_size = batch_size
         self.microbatch = microbatch if microbatch > 0 else batch_size
         self.lr = lr
+        self.max_steps = max_steps
         self.ema_rate = (
             [ema_rate]
             if isinstance(ema_rate, float)
@@ -74,6 +81,9 @@ class TrainLoop:
         self.master_params = self.model_params
         self.lg_loss_scale = INITIAL_LOG_LOSS_SCALE
         self.sync_cuda = th.cuda.is_available()
+
+        self.save_img = save_img
+        self.save_video = save_video
 
         self._load_and_sync_parameters()
         if self.use_fp16:
@@ -161,14 +171,18 @@ class TrainLoop:
     def run_loop(self):
         while (
             not self.lr_anneal_steps
-            or self.step + self.resume_step < self.lr_anneal_steps
-        ):
+            and (self.step + self.resume_step < self.max_steps or not self.max_steps)
+        ) or self.step + self.resume_step < self.lr_anneal_steps:
             batch, cond = next(self.data)
             self.run_step(batch, cond)
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
             if self.step % self.save_interval == 0:
                 self.save()
+
+                if self.save_img or self.save_video:
+                    self.make_plots()
+
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
                     return
@@ -310,6 +324,19 @@ class TrainLoop:
             return make_master_params(params)
         else:
             return params
+
+    def make_plots(self):
+        batch, _ = next(self.data_validation)
+
+        with th.no_grad():
+            samples = []
+            for sample in self.diffusion.sample_from_img_progressive(self.model, batch):
+                samples.append(sample["sample"])
+
+        if self.save_img:
+            save_as_plot(samples)
+        if self.save_video:
+            save_as_video(samples)
 
 
 def parse_resume_step_from_filename(filename):
