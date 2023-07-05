@@ -4,9 +4,8 @@ from typing import Union
 import h5py
 import numpy as np
 import torch
-
-# from mpi4py import MPI
 from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
 
 
 def load_data(
@@ -16,7 +15,7 @@ def load_data(
     split: str,
     deterministic: bool = False,
     random_slice: bool = False,
-    transform=None
+    transform=None,
 ):
     if not file_path:
         raise ValueError("unspecified file path")
@@ -26,12 +25,23 @@ def load_data(
     else:
         h5file = h5py.File(file_path, mode="r")
 
+    if transform is None:
+        transform_list = [transforms.ToPILImage()]
+        if split == "train":
+            transform_list.append(transforms.RandomAffine(3, (0.02, 0.09)))
+        transform_list += [
+            transforms.CenterCrop(235),
+            transforms.Resize((256, 256), transforms.InterpolationMode.BILINEAR),
+            transforms.ToTensor(),
+            transforms.Normalize(0.5, 0.5),
+        ]
+        transform = transforms.Compose(transform_list)
+
     dataset = HDF5Dataset(
         data=h5file[split],
-        resolution=256,
         random_slice=random_slice,
-        # shard=MPI.COMM_WORLD.Get_rank(),
-        # num_shards=MPI.COMM_WORLD.Get_size(),
+        shard=MPI.COMM_WORLD.Get_rank() if USE_MPI else 0,
+        num_shards=MPI.COMM_WORLD.Get_size() if USE_MPI else 1,
         transform=transform,
     )
 
@@ -50,11 +60,11 @@ class HDF5Dataset(Dataset):
     def __init__(
         self,
         data: Union[h5py.File, h5py.Group],
-        resolution: int,
         random_slice: bool = False,
         shard: int = 0,
         num_shards: int = 1,
         transform=None,
+        img_only=True,
     ) -> None:
         super().__init__()
 
@@ -63,6 +73,7 @@ class HDF5Dataset(Dataset):
         self.local_subjects = subjects[shard:][::num_shards]
         self.random = random_slice
         self.transform = transform if transform else None
+        self.img_only = img_only
 
     def __len__(self):
         return len(self.local_subjects)
@@ -80,10 +91,13 @@ class HDF5Dataset(Dataset):
         imgdata = {}
         if self.transform:
             imgdata["original"] = image
+            image = self.transform(image)
 
         imgdata["image"] = image
         imgdata["label"] = label
 
+        if self.img_only:
+            return image, {}
         return imgdata
 
 
@@ -93,9 +107,11 @@ if __name__ == "__main__":
         file_path="./hdf5_files/BraTS2020.hdf5",
         batch_size=8,
         split="train",
-        random_slice=False,
+        random_slice=True,
     )
-    batch = next(data)
-    print(batch["image"].shape)
+    batch, cond = next(data)
+    print(batch.shape)
 else:
+    from mpi4py import MPI
+
     USE_MPI = True
