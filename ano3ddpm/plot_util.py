@@ -54,7 +54,6 @@ def save_as_video(data: Union[List[torch.Tensor], List[np.ndarray]], path: str):
         return plots
 
     frames = [0] * 10 + list(range(len(data))) + [len(data) - 1] * 10
-    print(frames)
 
     ani = animation.FuncAnimation(
         fig=fig, func=update, frames=frames, interval=10000 / len(data)

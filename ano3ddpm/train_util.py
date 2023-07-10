@@ -190,6 +190,8 @@ class TrainLoop:
         # Save the last checkpoint if it wasn't already saved.
         if (self.step - 1) % self.save_interval != 0:
             self.save()
+            if self.save_img or self.save_video:
+                self.make_plots()
 
     def run_step(self, batch, cond):
         self.forward_backward(batch, cond)
@@ -331,12 +333,12 @@ class TrainLoop:
         with th.no_grad():
             samples = []
             for sample in self.diffusion.sample_from_img_progressive(self.model, batch):
-                samples.append(sample["sample"])
+                samples.append(sample["sample"].to("cpu"))
 
         if self.save_img:
-            save_as_plot(samples)
+            save_as_plot(samples, f"{os.getenv('PLOTDIR')}/img/{self.step}.png")
         if self.save_video:
-            save_as_video(samples)
+            save_as_video(samples, f"{os.getenv('PLOTDIR')}/vid/{self.step}.mp4")
 
 
 def parse_resume_step_from_filename(filename):

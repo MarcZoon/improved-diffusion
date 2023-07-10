@@ -189,7 +189,6 @@ class GaussianDiffusion:
             self.noise_fn = lambda x: generateSimplex(
                 x, simplex_octaves, simplex_persistance, simplex_frequency
             )
-            raise NotImplementedError("'simplex' noise_fn not implemented yet")
         else:
             raise ValueError(
                 f"noise_fn should be one of 'gauss', 'simplex' . Not '{noise_fn}'"
@@ -515,7 +514,10 @@ class GaussianDiffusion:
         device = next(model.parameters()).device
         shape = x_start.shape
 
-        img = self.q_sample(x_start, t=sample_distance).to(device)
+        indices = list(range(sample_distance))[::-1]
+
+        t = th.tensor([indices[0]] * shape[0], device=device)
+        img = self.q_sample(x_start.to(device), t=t).to(device)
 
         for i in range(sample_distance)[::-1]:
             t = th.tensor([i] * shape[0], device=device)
