@@ -1,6 +1,5 @@
-from abc import abstractmethod
-
 import math
+from abc import abstractmethod
 
 import numpy as np
 import torch as th
@@ -10,13 +9,13 @@ import torch.nn.functional as F
 from .fp16_util import convert_module_to_f16, convert_module_to_f32
 from .nn import (
     SiLU,
+    avg_pool_nd,
+    checkpoint,
     conv_nd,
     linear,
-    avg_pool_nd,
-    zero_module,
     normalization,
     timestep_embedding,
-    checkpoint,
+    zero_module,
 )
 
 
@@ -316,6 +315,7 @@ class UNetModel(nn.Module):
         use_scale_shift_norm=False,
     ):
         super().__init__()
+        print(channel_mult)
 
         if num_heads_upsample == -1:
             num_heads_upsample = num_heads

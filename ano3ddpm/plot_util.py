@@ -5,7 +5,8 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from simplex_util import generateSimplex
+
+from .simplex_util import generateSimplex
 
 
 def save_as_plot(data: Union[List[torch.Tensor], List[np.ndarray]], path: str):

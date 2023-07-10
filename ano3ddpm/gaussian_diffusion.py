@@ -11,11 +11,11 @@ from typing import Union
 
 import numpy as np
 import torch as th
-from unet import UNetModel
 
 from .losses import discretized_gaussian_log_likelihood, normal_kl
 from .nn import mean_flat
 from .simplex_util import generateSimplex
+from .unet import UNetModel
 
 
 def get_named_beta_schedule(schedule_name, num_diffusion_timesteps):
@@ -146,8 +146,8 @@ class GaussianDiffusion:
         self.num_timesteps = int(betas.shape[0])
 
         if sample_distance is not None:
-            assert sample_distance <= self.num_timesteps
-            self.sample_distance = sample_distance
+            self.sample_distance = int(sample_distance)
+            assert self.sample_distance <= self.num_timesteps
         else:
             self.sample_distance = self.num_timesteps
 

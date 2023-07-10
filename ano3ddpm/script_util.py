@@ -116,7 +116,7 @@ def create_model(
     dimensions,
 ):
     if channel_mult:
-        pass
+        channel_mult = [int(c) for c in channel_mult.split(",")]
     elif image_size == 256:
         channel_mult = (1, 1, 2, 2, 4, 4)
     elif image_size == 64:
@@ -131,9 +131,9 @@ def create_model(
         attention_ds.append(image_size // int(res))
 
     return UNetModel(
-        in_channels=3,
-        model_channels=num_channels,
-        out_channels=(in_channels if not learn_sigma else 2 * in_channels),
+        in_channels=int(in_channels),
+        model_channels=int(num_channels),
+        out_channels=(int(in_channels) if not learn_sigma else 2 * int(in_channels)),
         num_res_blocks=num_res_blocks,
         attention_resolutions=tuple(attention_ds),
         dropout=dropout,
