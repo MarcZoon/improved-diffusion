@@ -36,6 +36,8 @@ def model_and_diffusion_defaults() -> dict:
         in_channels=1,
         channel_mult=None,
         dimensions=2,
+        sample_distance=None,
+        noise_fn="gauss",
     )
 
 
@@ -62,6 +64,8 @@ def create_model_and_diffusion(
     in_channels,
     channel_mult,
     dimensions,
+    sample_distance,
+    noise_fn,
 ) -> Tuple[UNetModel, SpacedDiffusion]:
     model = create_model(
         image_size,
@@ -89,6 +93,8 @@ def create_model_and_diffusion(
         rescale_timesteps=rescale_timesteps,
         rescale_learned_sigmas=rescale_learned_sigmas,
         timestep_respacing=timestep_respacing,
+        noise_fn=noise_fn,
+        sample_distance=sample_distance,
     )
     return model, diffusion
 
@@ -254,6 +260,8 @@ def create_gaussian_diffusion(
     rescale_timesteps=False,
     rescale_learned_sigmas=False,
     timestep_respacing="",
+    sample_distance=None,
+    noise_fn="gauss",
 ):
     betas = gd.get_named_beta_schedule(noise_schedule, steps)
     if use_kl:
@@ -281,6 +289,8 @@ def create_gaussian_diffusion(
         ),
         loss_type=loss_type,
         rescale_timesteps=rescale_timesteps,
+        sample_distance=sample_distance,
+        noise_fn=noise_fn,
     )
 
 

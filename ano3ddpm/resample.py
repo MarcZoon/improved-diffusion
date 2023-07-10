@@ -5,7 +5,7 @@ import torch as th
 import torch.distributed as dist
 
 
-def create_named_schedule_sampler(name, diffusion):
+def create_named_schedule_sampler(name: str, diffusion):
     """
     Create a ScheduleSampler from a library of pre-defined samplers.
 
@@ -16,6 +16,10 @@ def create_named_schedule_sampler(name, diffusion):
         return UniformSampler(diffusion)
     elif name == "loss-second-moment":
         return LossSecondMomentResampler(diffusion)
+    elif name.startswith("weighted"):
+        # Added this as a reminder to myself
+        _, sample_distance, multiplier = name.split("_")
+        raise NotImplementedError("Weighted sampler not implemented yet.")
     else:
         raise NotImplementedError(f"unknown schedule sampler: {name}")
 
