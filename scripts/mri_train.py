@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from ano3ddpm import dist_util
 from ano3ddpm.mri_dataset import load_data
@@ -14,6 +15,12 @@ from ano3ddpm.train_util import TrainLoop
 
 def main():
     args = create_argparser().parse_args()
+    os.environ["DIFFUSION_BLOB_LOGDIR"] = f"{args.output_dir}/checkpoints"
+    os.environ["OPENAI_LOGDIR"] = f"{args.output_dir}/logs"
+    os.environ["PLOTDIR"] = f"{args.output_dir}/plots"
+
+    for dir in ["vid", "img"]:
+        os.makedirs(f"{args.output_dir}/plots/{dir}", exist_ok=True)
 
     dist_util.setup_dist()
 
@@ -29,18 +36,11 @@ def main():
         split="train",
         random_slice=True,
     )
-    data_validate = load_data(
-        file_path=args.file_path,
-        batch_size=args.batch_size,
-        split="validate",
-        random_slice=True,
-    )
 
     TrainLoop(
         model=model,
         diffusion=diffusion,
         data=data_train,
-        data_validation=data_validate,
         batch_size=args.batch_size,
         microbatch=args.microbatch,
         lr=args.lr,
@@ -60,6 +60,7 @@ def main():
 def create_argparser() -> argparse.ArgumentParser:
     defaults = dict(
         file_path="",
+        output_dir="",
         schedule_sampler="uniform",
         lr=1e-4,
         weight_decay=0.0,

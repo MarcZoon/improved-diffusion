@@ -1,3 +1,4 @@
+import os
 import random
 from typing import Union
 
@@ -21,12 +22,15 @@ def load_data(
         raise ValueError("unspecified file path")
 
     if USE_MPI:
+        print("using MPI")
         h5file = h5py.File(file_path, mode="r", driver="mpio", comm=MPI.COMM_WORLD)
     else:
         h5file = h5py.File(file_path, mode="r")
 
     if transform is None:
-        transform_list = [transforms.ToPILImage()]
+        transform_list = [
+            transforms.ToPILImage(),
+        ]
         if split == "train":
             transform_list.append(transforms.RandomAffine(3, (0.02, 0.09)))
         transform_list += [
@@ -51,6 +55,7 @@ def load_data(
         shuffle=not deterministic,
         num_workers=1,
         drop_last=True,
+        pin_memory=True,
     )
     while True:
         yield from loader

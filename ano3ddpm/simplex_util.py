@@ -46,11 +46,11 @@ def generateSimplex3D(
 
 
 def generateSimplex(
-    x: Union[np.ndarray, torch.Tensor],
+    x: torch.Tensor,
     octaves: int = 6,
     persistance: float = 0.8,
     frequency: int = 64,
-) -> np.ndarray:
+) -> torch.Tensor:
     batch, channels, *shape = x.shape
     dimensions = len(shape)
 
@@ -67,7 +67,7 @@ def generateSimplex(
                     "It should be one of (B, C, x, y) or (B, C, x, y, z)"
                 )
             noise[b, c, ...] = n
-    return noise
+    return torch.tensor(noise, dtype=x.dtype, device=x.device)
 
 
 if __name__ == "__main__":

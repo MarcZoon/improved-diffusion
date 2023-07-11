@@ -36,7 +36,7 @@ def save_as_plot(data: Union[List[torch.Tensor], List[np.ndarray]], path: str):
         ax = plt.gca()
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
-    plt.savefig(path)
+    plt.savefig(path, dpi=600)
 
 
 def save_as_video(data: Union[List[torch.Tensor], List[np.ndarray]], path: str):

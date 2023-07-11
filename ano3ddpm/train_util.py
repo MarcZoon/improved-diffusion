@@ -34,7 +34,6 @@ class TrainLoop:
         model,
         diffusion,
         data,
-        data_validation,
         batch_size,
         microbatch,
         lr,
@@ -54,7 +53,6 @@ class TrainLoop:
         self.model = model
         self.diffusion = diffusion
         self.data = data
-        self.data_validation = data_validation
         self.batch_size = batch_size
         self.microbatch = microbatch if microbatch > 0 else batch_size
         self.lr = lr
@@ -181,7 +179,7 @@ class TrainLoop:
                 self.save()
 
                 if self.save_img or self.save_video:
-                    self.make_plots()
+                    self.make_plots(batch)
 
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
@@ -191,7 +189,7 @@ class TrainLoop:
         if (self.step - 1) % self.save_interval != 0:
             self.save()
             if self.save_img or self.save_video:
-                self.make_plots()
+                self.make_plots(batch)
 
     def run_step(self, batch, cond):
         self.forward_backward(batch, cond)
@@ -327,9 +325,9 @@ class TrainLoop:
         else:
             return params
 
-    def make_plots(self):
-        batch, _ = next(self.data_validation)
-
+    def make_plots(self, batch):
+        if dist.get_rank() != 0:
+            return
         with th.no_grad():
             samples = []
             for sample in self.diffusion.sample_from_img_progressive(self.model, batch):
