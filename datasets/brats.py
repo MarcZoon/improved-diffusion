@@ -3,7 +3,10 @@ import os
 import random
 
 import h5py
+import matplotlib.pyplot as plt
 import nibabel
+import torch
+import torchio as tio
 import tqdm
 
 
@@ -17,15 +20,13 @@ def main():
     h5test = h5file.create_group("test")
 
     # Create splits
-    subjects = list(
-        random.shuffle(
-            [
-                l
-                for l in os.listdir(f"{args.input_dir}")
-                if not l.endswith(".csv") and "355" not in l
-            ]
-        )
-    )
+    subjects = [
+        l
+        for l in os.listdir(f"{args.input_dir}")
+        if not l.endswith(".csv") and "355" not in l
+    ]
+    random.shuffle(subjects)
+
     subj_train = subjects[: int((len(subjects) * data_split[0]))]
     subj_validate = subjects[
         int((len(subjects) * data_split[0])) : int(
@@ -40,24 +41,45 @@ def main():
 
 
 def process_split(subjects: list, h5group: h5py.Group, args):
+    transforms = tio.transforms.Compose(
+        [
+            tio.transforms.ToCanonical(),
+            tio.CropOrPad(256),
+            tio.transforms.RescaleIntensity(),
+        ]
+    )
     for subject in tqdm.tqdm(subjects):
-        image = nibabel.load(
-            f"{args.input_dir}/{subject}/{subject}_{args.sequence}.nii"
-        ).get_fdata()
-        seg = nibabel.load(f"{args.input_dir}/{subject}/{subject}_seg.nii").get_fdata()
+        tiosub = tio.Subject(
+            image=tio.ScalarImage(
+                f"{args.input_dir}/{subject}/{subject}_{args.sequence}.nii"
+            ),
+            seg=tio.LabelMap(f"{args.input_dir}/{subject}/{subject}_seg.nii"),
+        )
+        tiosub = transforms(tiosub)
+
+        image = tiosub["image"].data
+        seg = tiosub["seg"].data
 
         h5sub = h5group.create_group(subject)
-        h5sub.create_dataset("image", data=image[None, ...], compression="gzip")
+        h5sub.create_dataset("image", data=image / torch.max(image), compression="gzip")
         h5sub.create_dataset("label", data=seg, compression="gzip")
 
-        # Get slice ids for axial view
-        axial_ids = [
+        # # Get slice ids for axial view where area > 0.05
+        valid_axial = [
             id
-            for id in range(image.shape[2])
-            if image[:, :, id].max() > 0 and seg[:, :, id].max() == 0.0
+            for id in range(image.shape[-1])
+            if torch.sum((image[..., id] > 0).float()) >= 0.05
         ]
-        h5sub.create_dataset("healthy_axial", data=axial_ids)
-        h5sub.create_dataset("valid_axial", data=list(range(55, 116)))
+
+        healthy_axial = [
+            id
+            for id in range(image.shape[-1])
+            if torch.sum((image[..., id] > 0).float()) >= 0.05
+            and seg[:, :, id].max() == 0.0
+        ]
+
+        h5sub.create_dataset("healthy_axial", data=healthy_axial)
+        h5sub.create_dataset("valid_axial", data=valid_axial)
 
 
 def create_argparser() -> argparse.ArgumentParser:
