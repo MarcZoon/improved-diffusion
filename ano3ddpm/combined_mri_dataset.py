@@ -15,15 +15,16 @@ def load_data(
     file_path: str,
     batch_size: int,
     split: str,
+    organs: Union[str, list] = "all",
+    labels: str = "healthy",
     deterministic: bool = False,
-    random_slice: bool = False,
     transform=None,
+    class_cond=False,
 ):
     if not file_path:
         raise ValueError("unspecified file path")
 
     if USE_MPI:
-        print("using MPI")
         h5file = h5py.File(file_path, mode="r", driver="mpio", comm=MPI.COMM_WORLD)
     else:
         h5file = h5py.File(file_path, mode="r")
@@ -44,11 +45,14 @@ def load_data(
         transform = transforms.Compose(transform_list)
 
     dataset = HDF5Dataset(
-        data=h5file[split],
-        random_slice=random_slice,
+        hdf5file=h5file,
+        split=split,
+        organs=organs,
+        labels=labels,
         shard=MPI.COMM_WORLD.Get_rank() if USE_MPI else 0,
         num_shards=MPI.COMM_WORLD.Get_size() if USE_MPI else 1,
         transform=transform,
+        class_cond=class_cond,
     )
 
     loader = DataLoader(
@@ -66,82 +70,83 @@ def load_data(
 class HDF5Dataset(Dataset):
     def __init__(
         self,
-        data: Union[h5py.File, h5py.Group],
-        random_slice: bool = False,
+        hdf5file: h5py.File,
+        split: str,
+        organs: Union[str, list],
+        labels: str,
         shard: int = 0,
         num_shards: int = 1,
         transform=None,
-        img_only=True,
+        class_cond: bool = False,
     ) -> None:
         super().__init__()
 
-        self.data = data
-        subjects = list(self.data.keys())
-        self.local_subjects = subjects[shard:][::num_shards]
-        self.random = random_slice
-        self.transform = transform if transform else None
-        self.img_only = img_only
+        self.h5file = hdf5file
+        self.split = split
+        self.class_cond = class_cond
+        self.transform = transform
+
+        if organs == "all":
+            self.organs = list(hdf5file[split].keys())
+        elif isinstance(organs, str):
+            self.organs = organs.split(",")
+        else:
+            self.organs = organs
+
+        self.labels = labels.split(",")
+
+        self.items = []
+        for organ in self.organs:
+            for label in self.h5file[split][organ].keys():
+                if label in labels or "all" in labels:
+                    slices = [s for s in self.h5file[split][organ][label].keys()]
+                    for s in slices:
+                        self.items.append((organ, label, s))
+
+        self.local_items = self.items[shard:][::num_shards]
+
+        self.classes = {x: i for i, x in enumerate(sorted(set(self.organs)))}
 
     def __len__(self):
-        return len(self.local_subjects)
+        return len(self.items)
 
     def __getitem__(self, idx):
-        subject = self.data[self.local_subjects[idx]]
-        image = torch.tensor(subject["image"][...])
+        organ, label, scan_id = self.items[idx]
 
-        label = subject["label"][...]
-        if self.random:
-            # slice_id = random.choice(subject["healthy_axial"])
-            slice_id = subject["healthy_axial"][0]
-            image = image[..., slice_id]
-            label = label[..., slice_id]
+        scan_data = self.h5file[self.split][organ][label][f"{scan_id}"]["scan"][...]
+        scan_seg = self.h5file[self.split][organ][label][f"{scan_id}"]["seg"][...]
 
-        imgdata = {}
-        # if self.transform:
-        #     imgdata["original"] = image
-        #     image = self.transform(image)
+        out_dict = {
+            "seg": scan_seg,
+            "original": scan_data,
+        }
+        if self.class_cond:
+            out_dict["y"] = self.classes[organ]
 
-        imgdata["image"] = image
-        imgdata["label"] = label
-
-        if self.img_only:
-            return image, {}
-        return imgdata
+        img = self.transform(scan_data) if self.transform is not None else scan_data
+        return img, out_dict
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     USE_MPI = False
-    brats = load_data(
-        file_path="./hdf5_files/BraTS2020.hdf5",
-        batch_size=1,
+    data = load_data(
+        file_path="./hdf5_files/mri_combined.hdf5",
+        batch_size=2,
         split="train",
-        random_slice=True,
-    )
-    nfbs = load_data(
-        file_path="./hdf5_files/NFBS.hdf5",
-        batch_size=1,
-        split="train",
-        random_slice=True,
-    )
-
-    edinburgh = load_data(
-        file_path="./hdf5_files/Edinburgh.hdf5",
-        batch_size=1,
-        split="train",
-        random_slice=True,
+        organs="all",
+        labels="all",
+        class_cond=False,
     )
 
     while True:
-        b, _ = next(edinburgh)
-        print(b.shape)
-        n, _ = next(nfbs)
-        print(n.shape)
+        b, out_dict = next(data)
+        print(out_dict)
         plt.subplot(1, 2, 1)
         plt.imshow(b[0, 0, ...], cmap="gray")
         plt.subplot(1, 2, 2)
-        plt.imshow(n[0, 0, ...], cmap="gray")
+        plt.imshow(out_dict["seg"][0, 0, ...], cmap="gray")
         plt.show()
 
 else:

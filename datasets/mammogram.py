@@ -72,8 +72,9 @@ def process_split(
 ):
     transform = transforms.Compose(
         [
+            transforms.Resize(256),
             transforms.PILToTensor(),
-            torch.nn.ZeroPad2d([15, 14, 15, 14]),
+            # torch.nn.ZeroPad2d([15, 14, 15, 14]),
         ]
     )
     h5benign = h5group.create_group("benign")

@@ -66,11 +66,23 @@ class ImageDataset(Dataset):
 
 if __name__ == "__main__":
     USE_MPI = False
+    import matplotlib.pyplot as plt
+
     data = load_data(
-        file_path="hdf5_files/mammogram.hdf5", batch_size=1, split="train", label="both"
+        file_path="hdf5_files/mammogram2.hdf5",
+        batch_size=16,
+        split="train",
+        label="benign",
     )
 
-    print(next(data))
+    while True:
+        img, _ = next(data)
+
+        for i in range(16):
+            plt.subplot(4, 4, i + 1)
+            plt.imshow(img[i, 0, ...], cmap="gray")
+        plt.show()
+
 else:
     from mpi4py import MPI
 
