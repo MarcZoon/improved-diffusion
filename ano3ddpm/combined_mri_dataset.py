@@ -6,6 +6,7 @@ import h5py
 import numpy as np
 import torch
 import torchio as tio
+import torchvision as tio
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
@@ -113,8 +114,12 @@ class HDF5Dataset(Dataset):
     def __getitem__(self, idx):
         organ, label, scan_id = self.items[idx]
 
-        scan_data = self.h5file[self.split][organ][label][f"{scan_id}"]["scan"][...]
-        scan_seg = self.h5file[self.split][organ][label][f"{scan_id}"]["seg"][...]
+        scan_data = torch.tensor(
+            self.h5file[self.split][organ][label][f"{scan_id}"]["scan"][...]
+        )
+        scan_seg = torch.tensor(
+            self.h5file[self.split][organ][label][f"{scan_id}"]["seg"][...]
+        )
 
         out_dict = {
             "seg": scan_seg,
@@ -136,7 +141,7 @@ if __name__ == "__main__":
         batch_size=2,
         split="train",
         organs="all",
-        labels="all",
+        labels="malignant",
         class_cond=False,
     )
 
