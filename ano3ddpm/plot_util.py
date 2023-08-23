@@ -1,6 +1,5 @@
 from typing import List, Union
 
-import matplotlib
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,8 +8,10 @@ import torch
 from .simplex_util import generateSimplex
 
 
-def save_as_plot(data: Union[List[torch.Tensor], List[np.ndarray]], path: str):
-    start, intermediate, last = data[0], data[1:-1][::50], data[-1]
+def save_as_plot(
+    data: Union[List[torch.Tensor], List[np.ndarray]], path: str, stepsize=50
+):
+    start, intermediate, last = data[0], data[1:-1][::stepsize], data[-1]
 
     nrows = start.shape[0]
     ncols = len(intermediate) + 2
@@ -59,6 +60,47 @@ def save_as_video(data: Union[List[torch.Tensor], List[np.ndarray]], path: str):
         fig=fig, func=update, frames=frames, interval=10000 / len(data)
     )
     ani.save(path, writer="ffmpeg")
+
+
+def save_evaluation_plot(
+    diffusion_data: Union[List[torch.Tensor], List[np.ndarray]],
+    mse: Union[torch.Tensor, np.ndarray],
+    pred: Union[torch.Tensor, np.ndarray],
+    segmentation: Union[torch.Tensor, np.ndarray],
+    path: str,
+):
+    nrows = segmentation.shape[0]
+    ncols = len(diffusion_data) + 3
+    fig = plt.figure(figsize=(8, 8))
+    for b in range(nrows):
+        for i, data in enumerate(diffusion_data):
+            ax = fig.add_subplot(nrows, ncols, 1 + i + (b * ncols))
+            ax.imshow(data[b, 0, ...], cmap="gray")
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            ax.set_aspect("equal")
+
+        ax = fig.add_subplot(nrows, ncols, 1 + len(diffusion_data) + (b * ncols))
+        ax.imshow(mse[b, 0, ...], cmap="gist_heat")
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.set_aspect("equal")
+
+        ax = fig.add_subplot(nrows, ncols, 2 + len(diffusion_data) + (b * ncols))
+        ax.imshow(pred[b, 0, ...], cmap="gray")
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.set_aspect("equal")
+
+        ax = fig.add_subplot(nrows, ncols, 3 + len(diffusion_data) + (b * ncols))
+        ax.imshow(segmentation[b, 0, ...], cmap="gray")
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.set_aspect("equal")
+
+    fig.patch.set_visible(False)
+    plt.subplots_adjust(wspace=0, hspace=0)
+    plt.savefig(path, dpi=600)
 
 
 def main():
